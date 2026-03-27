@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Alpha Terminal Pro - SuperDOM Edition</title>
+    <style>
+        :root { --bg: #0e1117; --panel: #1a1a1a; --border: #333; --green: #00ff88; --red: #ff4444; --accent: #008f39; }
+        body { background: var(--bg); color: #e0e0e0; font-family: 'Consolas', monospace; margin: 15px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* Painel de Controle */
+        .control-panel { background: var(--panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px; flex-shrink: 0; }
+        .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+        .input-group { display: flex; flex-direction: column; gap: 4px; position: relative; }
+        label { font-size: 10px; color: #888; text-transform: uppercase; font-weight: bold; }
+        
+        input, select { background: #2d2d2d; border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; font-size: 12px; outline: none; }
+        input:focus { border-color: var(--green); }
+
+        /* Dropdown de Busca */
+        .search-results { position: absolute; top: 100%; left: 0; right: 0; background: #1e1e1e; border: 1px solid #444; border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .search-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #2d2d2d; }
+        .search-item:hover, .search-item.selected { background: var(--accent); color: white; }
+
+        /* Grid Layout */
+        .main-grid { display: grid; grid-template-columns: 1fr 380px; gap: 15px; flex-grow: 1; min-height: 0; margin-bottom: 20px; }
+        .panel { background: #0a0c10; border: 1px solid var(--border); border-radius: 5px; display: flex; flex-direction: column; min-height: 0; }
+        .panel-header { background: var(--panel); padding: 8px; font-weight: bold; font-size: 11px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Times & Sales */
+        #trades-container { flex-grow: 1; overflow-y: auto; }
+        .trade-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr 0.5fr; padding: 4px 10px; border-bottom: 1px solid #161616; font-size: 12px; }
+        .side-B { color: var(--green); } .side-S { color: var(--red); }
+
+        /* SuperDOM */
+        #dom-list { flex-grow: 1; overflow-y: auto; }
+        .dom-row { display: grid; grid-template-columns: 1fr 1.2fr 1fr; border-bottom: 1px solid #161616; height: 26px; align-items: center; font-size: 12px; }
+        .bid-cell { color: var(--green); text-align: left; padding-left: 10px; font-weight: bold; }
+        .price-cell { text-align: center; font-weight: bold; background: #111; color: #fff; border-left: 1px solid #222; border-right: 1px solid #222; }
+        .ask-cell { color: var(--red); text-align: right; padding-right: 10px; font-weight: bold; }
+
+        /* Botões e Badges */
+        button { background: var(--accent); color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; }
+        button:hover { filter: brightness(1.2); }
+        .status-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; border: 1px solid #444; margin-left: 5px; }
+        .on { color: var(--green); border-color: var(--green); }
+    </style>
+</head>
+<body>
+
+    <div class="control-panel">
+        <div class="row" style="border-bottom: 1px solid #333; padding-bottom: 10px;">
+            <div class="input-group">
+                <label>Ativo <span id="sync-count" class="status-badge">OFFLINE</span></label>
+                <input type="text" id="symbol-search" placeholder="Sincronizando..." autocomplete="off" style="width: 220px;">
+                <div id="search-results" class="search-results"></div>
+            </div>
+            <div class="input-group">
+                <label>Status Conexão</label>
+                <div id="conn-status" style="font-size: 12px; color: #888; padding: 8px 0;">AGUARDANDO ATIVO...</div>
+            </div>
+            <button onclick="selectSymbol()">CONECTAR</button>
+        </div>
+
+        <div class="row" style="margin-top: 10px;">
+            <div class="input-group">
+                <label>Comando</label>
+                <select id="action-select" onchange="toggleForm()">
+                    <option value="GET_TRADES">GET_TRADES (Histórico)</option>
+                    <option value="GET_SNAPSHOT">GET_SNAPSHOT (Candles)</option>
+                    <option value="SET_DEPTH">SET_DEPTH (DOM)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Filtro</label>
+                <select id="filter-mode" onchange="toggleForm()">
+                    <option value="QTY">Últimos N registros</option>
+                    <option value="DATE">Intervalo de Datas</option>
+                </select>
+            </div>
+
+            <div id="qty-box" class="input-group">
+                <label>Quantidade</label>
+                <input type="number" id="val-qty" value="100" style="width: 80px;">
+            </div>
+            <div id="date-box" class="row" style="display:none; margin:0; gap:10px;">
+                <div class="input-group"><label>Início</label><input type="text" id="date-start" value="27.03.2026 09:00" style="width: 140px;"></div>
+                <div class="input-group"><label>Fim</label><input type="text" id="date-end" value="27.03.2026 09:05" style="width: 140px;"></div>
+            </div>
+
+            <button onclick="sendCommand()" style="background: #0277bd;">EXECUTAR COMANDO</button>
+            <button onclick="clearAll()" style="background: #444;">LIMPAR TELA</button>
+        </div>
+    </div>
+
+    <div class="main-grid">
+        <div class="panel">
+            <div class="panel-header">
+                <span>TIMES & SALES</span>
+                <span id="ts-asset" style="color:var(--green)">---</span>
+            </div>
+            <div id="trades-container"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span>SUPER DOM (DEPTH)</span>
+                <span id="dom-asset" style="color:var(--green)">---</span>
+            </div>
+            <div class="dom-row" style="background:#111; font-weight:bold; border-bottom: 2px solid #333;">
+                <span style="padding-left:10px">COMPRA</span>
+                <span style="text-align:center">PREÇO</span>
+                <span style="padding-right:10px; text-align:right">VENDA</span>
+            </div>
+            <div id="dom-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+        let allSymbols = [];
+        let selectedIndex = -1;
+
+        const searchInput = document.getElementById("symbol-search");
+        const resultsDiv = document.getElementById("search-results");
+
+        // 1. LÓGICA DE FORMULÁRIO DINÂMICO
+        function toggleForm() {
+            const action = document.getElementById("action-select").value;
+            const mode = document.getElementById("filter-mode").value;
+            
+            const isDepth = action === "SET_DEPTH";
+            const isDate = mode === "DATE" && !isDepth;
+
+            document.getElementById("qty-box").style.display = isDate ? "none" : "flex";
+            document.getElementById("date-box").style.display = isDate ? "flex" : "none";
+        }
+
+        // 2. NAVEGAÇÃO POR SETAS NO BUSCADOR
+        searchInput.addEventListener("keydown", (e) => {
+            const items = resultsDiv.getElementsByClassName("search-item");
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                updateSelection(items);
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                selectedIndex = Math.max(selectedIndex - 1, 0);
+                updateSelection(items);
+            } else if (e.key === "Enter") {
+                if (selectedIndex > -1) items[selectedIndex].click();
+                else selectSymbol();
+            }
+        });
+
+        function updateSelection(items) {
+            Array.from(items).forEach((item, i) => {
+                item.classList.toggle("selected", i === selectedIndex);
+                if (i === selectedIndex) item.scrollIntoView({ block: 'nearest' });
+            });
+        }
+
+        searchInput.addEventListener("input", () => {
+            const val = searchInput.value.toUpperCase();
+            const filtered = allSymbols.filter(s => s.includes(val)).slice(0, 15);
+            selectedIndex = -1;
+            renderResults(filtered);
+        });
+
+        function renderResults(list) {
+            resultsDiv.innerHTML = "";
+            if (list.length > 0) {
+                resultsDiv.style.display = "block";
+                list.forEach(s => {
+                    const div = document.createElement("div");
+                    div.className = "search-item";
+                    div.innerText = s;
+                    div.onclick = () => { searchInput.value = s; resultsDiv.style.display = "none"; selectSymbol(); };
+                    resultsDiv.appendChild(div);
+                });
+            } else resultsDiv.style.display = "none";
+        }
+
+        // 3. COMUNICAÇÃO WEBSOCKET
+        ws.onopen = () => ws.send(JSON.stringify({ action: "LIST_SYMBOLS", param: "" }));
+
+        function selectSymbol() {
+            const sym = searchInput.value.toUpperCase();
+            if(!sym) return;
+            ws.send(JSON.stringify({ action: "SELECT_SYMBOL", param: sym }));
+            document.getElementById("ts-asset").innerText = sym;
+            document.getElementById("dom-asset").innerText = sym;
+            document.getElementById("conn-status").innerText = "CONECTADO: " + sym;
+            document.getElementById("conn-status").style.color = "var(--green)";
+            clearAll();
+            searchInput.blur();
+        }
+
+        function sendCommand() {
+            const action = document.getElementById("action-select").value;
+            const mode = document.getElementById("filter-mode").value;
+            let param = (mode === "QTY" || action === "SET_DEPTH") ? 
+                        document.getElementById("val-qty").value : 
+                        `${document.getElementById("date-start").value} # ${document.getElementById("date-end").value}`;
+            ws.send(JSON.stringify({ action, param }));
+        }
+
+        ws.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            if(msg.type === "symbols_list") {
+                allSymbols = msg.data.split(",").sort();
+                document.getElementById("sync-count").innerText = allSymbols.length + " ATIVOS";
+                document.getElementById("sync-count").classList.add("on");
+                searchInput.placeholder = "Buscar Ativo...";
+            }
+            if(msg.type === "tick" || msg.type === "trades_stream") renderTrade(msg.data || msg);
+            if(msg.type === "book") renderDOM(msg.data);
+        };
+
+        // 4. RENDERS (T&S e DOM)
+        function renderTrade(data) {
+            const trades = Array.isArray(data) ? data : [data];
+            const container = document.getElementById("trades-container");
+            trades.forEach(t => {
+                const row = document.createElement("div");
+                row.className = "trade-row";
+                const time = t.ms ? new Date(t.ms).toLocaleTimeString('pt-BR', {hour12:false}) : "--";
+                row.innerHTML = `<span>${time}</span><span class="side-${t.side}">${t.p.toFixed(2)}</span><span>${t.v}</span><span class="side-${t.side}">${t.side}</span>`;
+                container.prepend(row);
+                //if(container.children.length > 100) container.removeChild(container.lastChild);
+            });
+        }
+
+        function renderDOM(book) {
+            const list = document.getElementById("dom-list");
+            list.innerHTML = "";
+            book.sort((a,b) => b.p - a.p).forEach(row => {
+                const isBid = row.t === "B";
+                const div = document.createElement("div");
+                div.className = "dom-row";
+                div.innerHTML = `
+                    <div class="bid-cell">${isBid ? row.v : ''}</div>
+                    <div class="price-cell">${row.p.toFixed(2)}</div>
+                    <div class="ask-cell">${!isBid ? row.v : ''}</div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function clearAll() { 
+            document.getElementById("trades-container").innerHTML = ""; 
+            document.getElementById("dom-list").innerHTML = ""; 
+        }
+
+        document.addEventListener("click", (e) => { if(e.target !== searchInput) resultsDiv.style.display = "none"; });
+    </script>
+</body>
+</html>

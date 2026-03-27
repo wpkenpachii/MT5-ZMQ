@@ -1,0 +1,4 @@
+MetaTrader5==5.0.5640
+websockets==14.0
+pandas>=2.2.3
+numpy>=2.1.0
