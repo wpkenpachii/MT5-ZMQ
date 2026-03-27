@@ -2,256 +2,350 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Alpha Terminal Pro - SuperDOM Edition</title>
+    <title>Alpha Terminal Pro v8.5</title>
     <style>
-        :root { --bg: #0e1117; --panel: #1a1a1a; --border: #333; --green: #00ff88; --red: #ff4444; --accent: #008f39; }
-        body { background: var(--bg); color: #e0e0e0; font-family: 'Consolas', monospace; margin: 15px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        :root { --bg: #0d1117; --panel: #161b22; --border: #30363d; --green: #238636; --red: #da3633; --blue: #58a6ff; --text: #c9d1d9; }
+        body { background: var(--bg); color: var(--text); font-family: 'Consolas', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* Painel de Controle */
-        .control-panel { background: var(--panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px; flex-shrink: 0; }
-        .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
-        .input-group { display: flex; flex-direction: column; gap: 4px; position: relative; }
-        label { font-size: 10px; color: #888; text-transform: uppercase; font-weight: bold; }
+        /* Toolbar */
+        .toolbar { background: var(--panel); padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 15px; }
+        .search-box { position: relative; width: 220px; }
+        input, select, button { background: #0d1117; border: 1px solid var(--border); color: #fff; padding: 7px; border-radius: 4px; outline: none; font-size: 12px; }
         
-        input, select { background: #2d2d2d; border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; font-size: 12px; outline: none; }
-        input:focus { border-color: var(--green); }
-
-        /* Dropdown de Busca */
-        .search-results { position: absolute; top: 100%; left: 0; right: 0; background: #1e1e1e; border: 1px solid #444; border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .search-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #2d2d2d; }
-        .search-item:hover, .search-item.selected { background: var(--accent); color: white; }
-
-        /* Grid Layout */
-        .main-grid { display: grid; grid-template-columns: 1fr 380px; gap: 15px; flex-grow: 1; min-height: 0; margin-bottom: 20px; }
-        .panel { background: #0a0c10; border: 1px solid var(--border); border-radius: 5px; display: flex; flex-direction: column; min-height: 0; }
-        .panel-header { background: var(--panel); padding: 8px; font-weight: bold; font-size: 11px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .btn-green { background: var(--green); border: none; cursor: pointer; font-weight: bold; padding: 8px 15px; }
+        .btn-red { background: var(--red); border: none; cursor: pointer; font-weight: bold; padding: 8px 15px; }
         
-        /* Times & Sales */
-        #trades-container { flex-grow: 1; overflow-y: auto; }
-        .trade-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr 0.5fr; padding: 4px 10px; border-bottom: 1px solid #161616; font-size: 12px; }
-        .side-B { color: var(--green); } .side-S { color: var(--red); }
+        /* Layout */
+        .layout { display: grid; grid-template-columns: 1fr 350px 320px; flex-grow: 1; min-height: 0; }
+        .col { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+        .header-col { background: #161b22; padding: 8px 12px; font-weight: bold; font-size: 11px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .content { flex-grow: 1; overflow-y: auto; scrollbar-width: thin; }
 
-        /* SuperDOM */
-        #dom-list { flex-grow: 1; overflow-y: auto; }
-        .dom-row { display: grid; grid-template-columns: 1fr 1.2fr 1fr; border-bottom: 1px solid #161616; height: 26px; align-items: center; font-size: 12px; }
-        .bid-cell { color: var(--green); text-align: left; padding-left: 10px; font-weight: bold; }
-        .price-cell { text-align: center; font-weight: bold; background: #111; color: #fff; border-left: 1px solid #222; border-right: 1px solid #222; }
-        .ask-cell { color: var(--red); text-align: right; padding-right: 10px; font-weight: bold; }
+        /* T&S e DOM */
+        .trade-row { display: grid; grid-template-columns: 1fr 1fr 1fr 0.5fr; padding: 4px 10px; border-bottom: 1px solid #21262d; font-size: 12px; }
+        .dom-row { display: grid; grid-template-columns: 1fr 1.2fr 1fr; height: 26px; align-items: center; border-bottom: 1px solid #21262d; text-align: center; }
+        .price-cell { background: #0d1117; font-weight: bold; color: #fff; border-left: 1px solid #21262d; border-right: 1px solid #21262d; }
 
-        /* Botões e Badges */
-        button { background: var(--accent); color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; }
-        button:hover { filter: brightness(1.2); }
-        .status-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; border: 1px solid #444; margin-left: 5px; }
-        .on { color: var(--green); border-color: var(--green); }
+        /* Filtros */
+        .filter-card { background: #21262d; padding: 10px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #30363d; }
+        .filter-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+
+        /* Gráfico Simples */
+        #chart-canvas { background: #0d1117; width: 100%; height: 200px; border-bottom: 1px solid var(--border); }
+
+        /* Busca Suspensa com Suporte a Teclado */
+        #search-results { position: absolute; top: 100%; left: 0; right: 0; background: #1c2128; border: 1px solid var(--blue); z-index: 1000; display: none; max-height: 250px; overflow-y: auto; border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .search-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #30363d; font-size: 12px; }
+        .search-item:hover, .search-item.active { background: var(--blue); color: #fff; } /* Classe .active adicionada para o teclado */
     </style>
 </head>
 <body>
 
-    <div class="control-panel">
-        <div class="row" style="border-bottom: 1px solid #333; padding-bottom: 10px;">
-            <div class="input-group">
-                <label>Ativo <span id="sync-count" class="status-badge">OFFLINE</span></label>
-                <input type="text" id="symbol-search" placeholder="Sincronizando..." autocomplete="off" style="width: 220px;">
-                <div id="search-results" class="search-results"></div>
-            </div>
-            <div class="input-group">
-                <label>Status Conexão</label>
-                <div id="conn-status" style="font-size: 12px; color: #888; padding: 8px 0;">AGUARDANDO ATIVO...</div>
-            </div>
-            <button onclick="selectSymbol()">CONECTAR</button>
-        </div>
+<div class="toolbar">
+    <div class="search-box">
+        <input type="text" id="asset-input" placeholder="Buscar Ativo (ex: WDO)..." style="width: 100%;" autocomplete="off">
+        <div id="search-results"></div>
+    </div>
+    <button class="btn-green" onclick="connect()">CONECTAR</button>
+    <button class="btn-red" onclick="disconnect()">DESCONECTAR</button>
+    <div style="border-left: 1px solid var(--border); height: 20px; margin: 0 5px;"></div>
+    <label style="font-size: 11px; font-weight: bold;">IGNORAR LOTES < </label>
+    <input type="number" id="global-min-vol" value="0" style="width: 60px;" title="Ignorar trades menores que este valor">
+    <span id="status" style="font-size: 11px; font-weight: bold; margin-left: auto; color: #888;">OFFLINE</span>
+</div>
 
-        <div class="row" style="margin-top: 10px;">
-            <div class="input-group">
-                <label>Comando</label>
-                <select id="action-select" onchange="toggleForm()">
-                    <option value="GET_TRADES">GET_TRADES (Histórico)</option>
-                    <option value="GET_SNAPSHOT">GET_SNAPSHOT (Candles)</option>
-                    <option value="SET_DEPTH">SET_DEPTH (DOM)</option>
-                </select>
-            </div>
-            <div class="input-group">
-                <label>Filtro</label>
-                <select id="filter-mode" onchange="toggleForm()">
-                    <option value="QTY">Últimos N registros</option>
-                    <option value="DATE">Intervalo de Datas</option>
-                </select>
-            </div>
-
-            <div id="qty-box" class="input-group">
-                <label>Quantidade</label>
-                <input type="number" id="val-qty" value="100" style="width: 80px;">
-            </div>
-            <div id="date-box" class="row" style="display:none; margin:0; gap:10px;">
-                <div class="input-group"><label>Início</label><input type="text" id="date-start" value="27.03.2026 09:00" style="width: 140px;"></div>
-                <div class="input-group"><label>Fim</label><input type="text" id="date-end" value="27.03.2026 09:05" style="width: 140px;"></div>
-            </div>
-
-            <button onclick="sendCommand()" style="background: #0277bd;">EXECUTAR COMANDO</button>
-            <button onclick="clearAll()" style="background: #444;">LIMPAR TELA</button>
-        </div>
+<div class="layout">
+    <div class="col">
+        <div class="header-col">TIMES & SALES <span id="active-symbol" style="color: var(--blue);">---</span></div>
+        <canvas id="chart-canvas"></canvas>
+        <div id="ts-container" class="content"></div>
     </div>
 
-    <div class="main-grid">
-        <div class="panel">
-            <div class="panel-header">
-                <span>TIMES & SALES</span>
-                <span id="ts-asset" style="color:var(--green)">---</span>
-            </div>
-            <div id="trades-container"></div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">
-                <span>SUPER DOM (DEPTH)</span>
-                <span id="dom-asset" style="color:var(--green)">---</span>
-            </div>
-            <div class="dom-row" style="background:#111; font-weight:bold; border-bottom: 2px solid #333;">
-                <span style="padding-left:10px">COMPRA</span>
-                <span style="text-align:center">PREÇO</span>
-                <span style="padding-right:10px; text-align:right">VENDA</span>
-            </div>
-            <div id="dom-list"></div>
-        </div>
+    <div class="col">
+        <div class="header-col">ORDER BOOK (DEPTH 20)</div>
+        <div id="dom-container" class="content"></div>
     </div>
 
-    <script>
-        const ws = new WebSocket("ws://127.0.0.1:8000/ws");
-        let allSymbols = [];
-        let selectedIndex = -1;
+    <div class="col" style="border: none; padding: 12px;">
+        <div class="header-col" style="background: none; padding: 0 0 10px 0; border-bottom: none;">FILTROS DE DESTAQUE E SOM</div>
+        <div id="filters-list"></div>
+        <button onclick="addFilter()" style="width: 100%; margin-top: 10px; cursor: pointer; background: #21262d; border: 1px dashed var(--blue); color: var(--blue);">+ ADICIONAR REGRA</button>
+        
+        <div class="header-col" style="background: none; padding: 25px 0 10px 0; border-bottom: none;">TESTE DE ÁUDIO</div>
+        <select id="audio-tester" onchange="playPreview(this.value)" style="width: 100%;"></select>
+    </div>
+</div>
 
-        const searchInput = document.getElementById("symbol-search");
-        const resultsDiv = document.getElementById("search-results");
+<script>
+    const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+    let allSymbols = [];
+    let activeFilters = [];
+    let currentAsset = "";
 
-        // 1. LÓGICA DE FORMULÁRIO DINÂMICO
-        function toggleForm() {
-            const action = document.getElementById("action-select").value;
-            const mode = document.getElementById("filter-mode").value;
-            
-            const isDepth = action === "SET_DEPTH";
-            const isDate = mode === "DATE" && !isDepth;
+    const audioLibrary = [
+        { n: "Nenhum (Silêncio)", u: "" },
+        { n: "Beep Curto", u: "https://actions.google.com/sounds/v1/alarms/beep_short.ogg" },
+        { n: "Alerta Digital", u: "https://actions.google.com/sounds/v1/alarms/digital_alarm_clock.ogg" },
+        { n: "Sonar Ping", u: "https://actions.google.com/sounds/v1/alarms/sonar_ping.ogg" },
+        { n: "Laser", u: "https://actions.google.com/sounds/v1/scifi/sci-fi_laser.ogg" },
+        { n: "Bolha (Pop)", u: "https://actions.google.com/sounds/v1/water/pop.ogg" },
+        { n: "Sino (Bell)", u: "https://actions.google.com/sounds/v1/alarms/dinner_bell_ringing.ogg" },
+        { n: "Clique Seco", u: "https://actions.google.com/sounds/v1/buttons/button_click_confirmation.ogg" },
+        { n: "Confirmação Tech", u: "https://actions.google.com/sounds/v1/scifi/high_tech_confirmation.ogg" },
+        { n: "Emergência", u: "https://actions.google.com/sounds/v1/emergency/emergency_alert_system.ogg" }
+    ];
 
-            document.getElementById("qty-box").style.display = isDate ? "none" : "flex";
-            document.getElementById("date-box").style.display = isDate ? "flex" : "none";
+    ws.onopen = () => {
+        document.getElementById("status").innerText = "WS ONLINE";
+        document.getElementById("status").style.color = "var(--green)";
+        ws.send(JSON.stringify({ action: "LIST_SYMBOLS" }));
+    };
+
+    ws.onclose = () => {
+        document.getElementById("status").innerText = "OFFLINE";
+        document.getElementById("status").style.color = "#888";
+    };
+
+    ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if(msg.type === "symbols_list") {
+            allSymbols = msg.data.split(",").filter(s => s.trim().length > 0);
         }
+        if(msg.type === "tick") handleTrade(msg);
+        if(msg.type === "book") handleDOM(msg.data);
+        if(msg.type === "candles") drawChart(msg.data);
+        if(msg.type === "status" && msg.clear) clearUI();
+    };
 
-        // 2. NAVEGAÇÃO POR SETAS NO BUSCADOR
-        searchInput.addEventListener("keydown", (e) => {
-            const items = resultsDiv.getElementsByClassName("search-item");
-            if (e.key === "ArrowDown") {
-                e.preventDefault();
-                selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-                updateSelection(items);
-            } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                selectedIndex = Math.max(selectedIndex - 1, 0);
-                updateSelection(items);
-            } else if (e.key === "Enter") {
-                if (selectedIndex > -1) items[selectedIndex].click();
-                else selectSymbol();
+    function connect() {
+        const asset = document.getElementById("asset-input").value.toUpperCase();
+        if(!asset) return;
+        currentAsset = asset;
+        document.getElementById("active-symbol").innerText = asset;
+        clearUI();
+        loadFilters(asset);
+        ws.send(JSON.stringify({ action: "SUBSCRIBE", param: asset }));
+    }
+
+    function disconnect() {
+        ws.send(JSON.stringify({ action: "UNSUBSCRIBE" }));
+        currentAsset = "";
+        clearUI();
+    }
+
+    function clearUI() {
+        document.getElementById("ts-container").innerHTML = "";
+        document.getElementById("dom-container").innerHTML = "";
+        if(!currentAsset) document.getElementById("active-symbol").innerText = "---";
+        const ctx = document.getElementById("chart-canvas").getContext("2d");
+        ctx.clearRect(0, 0, 800, 200);
+    }
+
+    // --- FILTROS NO LOCALSTORAGE ---
+    function loadFilters(asset) {
+        const saved = localStorage.getItem(`cfg_${asset}`);
+        if (saved) {
+            activeFilters = JSON.parse(saved);
+        } else {
+            activeFilters = [
+                { min: 50, color: "#58a6ff", sound: 0 },
+                { min: 250, color: "#ffea00", sound: 0 }
+            ];
+        }
+        renderFilters();
+    }
+
+    function addFilter() {
+        activeFilters.push({ min: 100, color: "#da3633", sound: 0 });
+        renderFilters();
+    }
+
+    function renderFilters() {
+        const div = document.getElementById("filters-list");
+        div.innerHTML = activeFilters.map((f, i) => `
+            <div class="filter-card">
+                <div class="filter-row">
+                    <label style="font-size: 10px; font-weight: bold;">LOTE >=</label>
+                    <input type="number" value="${f.min}" onchange="updateF(${i},'min',this.value)" style="width:70px">
+                    <input type="color" value="${f.color}" onchange="updateF(${i},'color',this.value)" style="padding: 0; width: 30px; height: 26px;">
+                    <button onclick="removeF(${i})" style="background:none; border:none; color:var(--red); cursor:pointer; font-weight:bold; margin-left:auto;">X</button>
+                </div>
+                <select onchange="updateF(${i},'sound',this.value)" style="width:100%">
+                    ${audioLibrary.map((s, si) => `<option value="${si}" ${f.sound==si?'selected':''}>${s.n}</option>`).join('')}
+                </select>
+            </div>
+        `).join('');
+        if(currentAsset) localStorage.setItem(`cfg_${currentAsset}`, JSON.stringify(activeFilters));
+    }
+
+    function updateF(i, k, v) { activeFilters[i][k] = v; renderFilters(); }
+    function removeF(i) { activeFilters.splice(i, 1); renderFilters(); }
+    function playPreview(i) { 
+        if(i > 0 && audioLibrary[i].u) new Audio(audioLibrary[i].u).play(); 
+    }
+
+    // --- PROCESSAMENTO DE DADOS (T&S) ---
+    function handleTrade(t) {
+        const container = document.getElementById("ts-container");
+        const globalMin = parseInt(document.getElementById("global-min-vol").value) || 0;
+        
+        if(t.v < globalMin) return;
+
+        const row = document.createElement("div");
+        row.className = "trade-row";
+        
+        activeFilters.sort((a,b) => b.min - a.min).some(f => {
+            if(t.v >= f.min) {
+                row.style.background = f.color + "22";
+                row.style.borderLeft = `4px solid ${f.color}`;
+                if(f.sound > 0 && audioLibrary[f.sound].u) {
+                    new Audio(audioLibrary[f.sound].u).play().catch(()=>{});
+                }
+                return true;
             }
         });
 
-        function updateSelection(items) {
-            Array.from(items).forEach((item, i) => {
-                item.classList.toggle("selected", i === selectedIndex);
-                if (i === selectedIndex) item.scrollIntoView({ block: 'nearest' });
-            });
-        }
+        const time = new Date(t.ms).toLocaleTimeString('pt-BR', {hour12:false});
+        row.innerHTML = `
+            <span>${time}</span>
+            <span style="color:${t.side=='B'?'var(--green)':'var(--red)'}">${t.p.toFixed(2)}</span>
+            <span style="font-weight:bold">${t.v}</span>
+            <span style="color:${t.side=='B'?'var(--green)':'var(--red)'}">${t.side}</span>
+        `;
+        
+        container.prepend(row);
+        if(container.children.length > 100) container.removeChild(container.lastChild);
+    }
 
-        searchInput.addEventListener("input", () => {
-            const val = searchInput.value.toUpperCase();
-            const filtered = allSymbols.filter(s => s.includes(val)).slice(0, 15);
-            selectedIndex = -1;
-            renderResults(filtered);
+    // --- PROCESSAMENTO DO LIVRO (DOM) ---
+    function handleDOM(book) {
+        const container = document.getElementById("dom-container");
+        book.sort((a,b) => b.p - a.p);
+        container.innerHTML = book.map(r => `
+            <div class="dom-row">
+                <div style="color:var(--green)">${r.t=='B'?r.v:''}</div>
+                <div class="price-cell">${r.p.toFixed(2)}</div>
+                <div style="color:var(--red)">${r.t=='S'?r.v:''}</div>
+            </div>`).join('');
+    }
+
+    // --- GRÁFICO BÁSICO DE LINHA ---
+    function drawChart(data) {
+        const canvas = document.getElementById("chart-canvas");
+        const ctx = canvas.getContext("2d");
+        const w = canvas.width = canvas.offsetWidth;
+        const h = canvas.height = 200;
+        
+        if (!data || data.length === 0) return;
+
+        const prices = data.map(d => d.c);
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const rng = max - min || 1; 
+
+        ctx.strokeStyle = "var(--blue)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        data.forEach((d, i) => {
+            const x = (i / (data.length - 1)) * w;
+            const y = h - ((d.c - min) / rng) * (h - 20) - 10;
+            if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
+        ctx.stroke();
+    }
 
-        function renderResults(list) {
-            resultsDiv.innerHTML = "";
-            if (list.length > 0) {
-                resultsDiv.style.display = "block";
-                list.forEach(s => {
-                    const div = document.createElement("div");
-                    div.className = "search-item";
-                    div.innerText = s;
-                    div.onclick = () => { searchInput.value = s; resultsDiv.style.display = "none"; selectSymbol(); };
-                    resultsDiv.appendChild(div);
-                });
-            } else resultsDiv.style.display = "none";
+    // --- BUSCA SUSPENSA COM NAVEGAÇÃO POR TECLADO ---
+    const assetInput = document.getElementById("asset-input");
+    const results = document.getElementById("search-results");
+    let currentFocus = -1; // Rastreia o item selecionado pelo teclado
+
+    // Função auxiliar para disparar a seleção e conexão
+    function selectAsset(symbol) {
+        assetInput.value = symbol; 
+        results.style.display = "none"; 
+        connect(); 
+    }
+
+    assetInput.addEventListener("input", (e) => {
+        const val = e.target.value.toUpperCase();
+        results.innerHTML = "";
+        currentFocus = -1; // Reseta o foco ao digitar
+        
+        if(!val) { results.style.display="none"; return; }
+        
+        const filtered = allSymbols.filter(s => s.includes(val)).slice(0, 15);
+        if(filtered.length > 0) {
+            filtered.forEach(s => {
+                const d = document.createElement("div"); 
+                d.className = "search-item"; 
+                d.innerText = s;
+                
+                // onmousedown previne que o blur feche a div antes do click
+                d.onmousedown = (event) => { 
+                    event.preventDefault(); 
+                    selectAsset(s);
+                };
+                results.appendChild(d);
+            });
+            results.style.display = "block";
+        } else {
+            results.style.display = "none";
         }
+    });
 
-        // 3. COMUNICAÇÃO WEBSOCKET
-        ws.onopen = () => ws.send(JSON.stringify({ action: "LIST_SYMBOLS", param: "" }));
-
-        function selectSymbol() {
-            const sym = searchInput.value.toUpperCase();
-            if(!sym) return;
-            ws.send(JSON.stringify({ action: "SELECT_SYMBOL", param: sym }));
-            document.getElementById("ts-asset").innerText = sym;
-            document.getElementById("dom-asset").innerText = sym;
-            document.getElementById("conn-status").innerText = "CONECTADO: " + sym;
-            document.getElementById("conn-status").style.color = "var(--green)";
-            clearAll();
-            searchInput.blur();
-        }
-
-        function sendCommand() {
-            const action = document.getElementById("action-select").value;
-            const mode = document.getElementById("filter-mode").value;
-            let param = (mode === "QTY" || action === "SET_DEPTH") ? 
-                        document.getElementById("val-qty").value : 
-                        `${document.getElementById("date-start").value} # ${document.getElementById("date-end").value}`;
-            ws.send(JSON.stringify({ action, param }));
-        }
-
-        ws.onmessage = (e) => {
-            const msg = JSON.parse(e.data);
-            if(msg.type === "symbols_list") {
-                allSymbols = msg.data.split(",").sort();
-                document.getElementById("sync-count").innerText = allSymbols.length + " ATIVOS";
-                document.getElementById("sync-count").classList.add("on");
-                searchInput.placeholder = "Buscar Ativo...";
+    // Lógica das Setas e Enter
+    assetInput.addEventListener("keydown", function(e) {
+        let x = results.getElementsByClassName("search-item");
+        
+        if (e.key === "ArrowDown") {
+            currentFocus++;
+            addActive(x);
+        } else if (e.key === "ArrowUp") {
+            currentFocus--;
+            addActive(x);
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (currentFocus > -1) {
+                // Se o usuário navegou com a seta, seleciona aquele
+                if (x) x[currentFocus].onmousedown(new MouseEvent('mousedown'));
+            } else if (x.length > 0) {
+                // Se ele só digitou e deu Enter, pega o primeiro da lista
+                x[0].onmousedown(new MouseEvent('mousedown'));
             }
-            if(msg.type === "tick" || msg.type === "trades_stream") renderTrade(msg.data || msg);
-            if(msg.type === "book") renderDOM(msg.data);
-        };
-
-        // 4. RENDERS (T&S e DOM)
-        function renderTrade(data) {
-            const trades = Array.isArray(data) ? data : [data];
-            const container = document.getElementById("trades-container");
-            trades.forEach(t => {
-                const row = document.createElement("div");
-                row.className = "trade-row";
-                const time = t.ms ? new Date(t.ms).toLocaleTimeString('pt-BR', {hour12:false}) : "--";
-                row.innerHTML = `<span>${time}</span><span class="side-${t.side}">${t.p.toFixed(2)}</span><span>${t.v}</span><span class="side-${t.side}">${t.side}</span>`;
-                container.prepend(row);
-                //if(container.children.length > 100) container.removeChild(container.lastChild);
-            });
         }
+    });
 
-        function renderDOM(book) {
-            const list = document.getElementById("dom-list");
-            list.innerHTML = "";
-            book.sort((a,b) => b.p - a.p).forEach(row => {
-                const isBid = row.t === "B";
-                const div = document.createElement("div");
-                div.className = "dom-row";
-                div.innerHTML = `
-                    <div class="bid-cell">${isBid ? row.v : ''}</div>
-                    <div class="price-cell">${row.p.toFixed(2)}</div>
-                    <div class="ask-cell">${!isBid ? row.v : ''}</div>
-                `;
-                list.appendChild(div);
-            });
+    function addActive(x) {
+        if (!x || x.length === 0) return false;
+        removeActive(x);
+        if (currentFocus >= x.length) currentFocus = 0;
+        if (currentFocus < 0) currentFocus = (x.length - 1);
+        x[currentFocus].classList.add("active");
+        
+        // Faz o scroll acompanhar a seleção se passar do limite visual
+        x[currentFocus].scrollIntoView({ block: "nearest" });
+    }
+
+    function removeActive(x) {
+        for (let i = 0; i < x.length; i++) {
+            x[i].classList.remove("active");
         }
+    }
 
-        function clearAll() { 
-            document.getElementById("trades-container").innerHTML = ""; 
-            document.getElementById("dom-list").innerHTML = ""; 
+    assetInput.addEventListener("blur", () => {
+        results.style.display = "none";
+    });
+
+    assetInput.addEventListener("focus", () => {
+        if (assetInput.value && results.innerHTML !== "") {
+            results.style.display = "block";
         }
+    });
 
-        document.addEventListener("click", (e) => { if(e.target !== searchInput) resultsDiv.style.display = "none"; });
-    </script>
+    window.onload = () => {
+        const tester = document.getElementById("audio-tester");
+        audioLibrary.forEach((s, i) => tester.add(new Option(s.n, i)));
+    };
+</script>
 </body>
 </html>
