@@ -2,98 +2,213 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Alpha Terminal Pro v8.5</title>
+    <title>Alpha Terminal Pro v13.0 - Gráfico Independente</title>
+    
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack-all.js"></script>
+
     <style>
-        :root { --bg: #0d1117; --panel: #161b22; --border: #30363d; --green: #238636; --red: #da3633; --blue: #58a6ff; --text: #c9d1d9; }
+        :root { --bg: #0d1117; --panel: #161b22; --border: #30363d; --green: #238636; --red: #da3633; --blue: #58a6ff; --neutral: #6e7681; --text: #c9d1d9; }
         body { background: var(--bg); color: var(--text); font-family: 'Consolas', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* Toolbar */
-        .toolbar { background: var(--panel); padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 15px; }
+        .toolbar { background: var(--panel); padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 15px; z-index: 1000; }
         .search-box { position: relative; width: 220px; }
         input, select, button { background: #0d1117; border: 1px solid var(--border); color: #fff; padding: 7px; border-radius: 4px; outline: none; font-size: 12px; }
-        
         .btn-green { background: var(--green); border: none; cursor: pointer; font-weight: bold; padding: 8px 15px; }
         .btn-red { background: var(--red); border: none; cursor: pointer; font-weight: bold; padding: 8px 15px; }
+        .btn-reset { background: var(--panel); border: 1px solid var(--blue); color: var(--blue); cursor: pointer; padding: 8px 15px; font-weight: bold;}
         
-        /* Layout */
-        .layout { display: grid; grid-template-columns: 1fr 350px 320px; flex-grow: 1; min-height: 0; }
-        .col { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
-        .header-col { background: #161b22; padding: 8px 12px; font-weight: bold; font-size: 11px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .workspace-container { flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding: 5px; background: #010409;}
+        .grid-stack-item-content { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .drag-handle { cursor: move; background: #161b22; padding: 8px 12px; font-weight: bold; font-size: 11px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .drag-handle:active { background: #21262d; }
+        
         .content { flex-grow: 1; overflow-y: auto; scrollbar-width: thin; }
 
-        /* T&S e DOM */
         .trade-row { display: grid; grid-template-columns: 1fr 1fr 1fr 0.5fr; padding: 4px 10px; border-bottom: 1px solid #21262d; font-size: 12px; }
         .dom-row { display: grid; grid-template-columns: 1fr 1.2fr 1fr; height: 26px; align-items: center; border-bottom: 1px solid #21262d; text-align: center; }
         .price-cell { background: #0d1117; font-weight: bold; color: #fff; border-left: 1px solid #21262d; border-right: 1px solid #21262d; }
 
-        /* Filtros */
+        .vap-row { display: grid; grid-template-columns: 65px 1fr; align-items: center; border-bottom: 1px solid #21262d; font-size: 11px; height: 22px;}
+        .vap-price { background: #0d1117; font-weight: bold; text-align: center; padding: 4px; color: #fff; border-right: 1px solid #21262d;}
+        .vap-bar-container { display: flex; height: 100%; position: relative; background: #161b22; }
+        .vap-buy-bar { background: rgba(35, 134, 54, 0.6); height: 100%; transition: width 0.3s; }
+        .vap-sell-bar { background: rgba(218, 54, 51, 0.6); height: 100%; transition: width 0.3s; }
+        .vap-neutral-bar { background: rgba(110, 118, 129, 0.6); height: 100%; transition: width 0.3s; }
+        .vap-text { position: absolute; width: 100%; text-align: center; color: white; top: 4px; font-size: 10px; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none;}
+
         .filter-card { background: #21262d; padding: 10px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #30363d; }
         .filter-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-
-        /* Gráfico Simples */
-        #chart-canvas { background: #0d1117; width: 100%; height: 200px; border-bottom: 1px solid var(--border); }
-
-        /* Busca Suspensa com Suporte a Teclado */
-        #search-results { position: absolute; top: 100%; left: 0; right: 0; background: #1c2128; border: 1px solid var(--blue); z-index: 1000; display: none; max-height: 250px; overflow-y: auto; border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        
+        /* O gráfico agora preenche 100% do widget solto */
+        #chart-container { width: 100%; height: 100%; flex-grow: 1; position: relative; }
+        
+        #search-results { position: absolute; top: 100%; left: 0; right: 0; background: #1c2128; border: 1px solid var(--blue); z-index: 1000; display: none; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
         .search-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #30363d; font-size: 12px; }
-        .search-item:hover, .search-item.active { background: var(--blue); color: #fff; } /* Classe .active adicionada para o teclado */
+        .search-item:hover, .search-item.active { background: var(--blue); color: #fff; }
     </style>
 </head>
 <body>
 
 <div class="toolbar">
     <div class="search-box">
-        <input type="text" id="asset-input" placeholder="Buscar Ativo (ex: WDO)..." style="width: 100%;" autocomplete="off">
+        <input type="text" id="asset-input" placeholder="Buscar Ativo (ex: WDO)..." autocomplete="off">
         <div id="search-results"></div>
     </div>
     <button class="btn-green" onclick="connect()">CONECTAR</button>
     <button class="btn-red" onclick="disconnect()">DESCONECTAR</button>
     <div style="border-left: 1px solid var(--border); height: 20px; margin: 0 5px;"></div>
     <label style="font-size: 11px; font-weight: bold;">IGNORAR LOTES < </label>
-    <input type="number" id="global-min-vol" value="0" style="width: 60px;" title="Ignorar trades menores que este valor">
+    <input type="number" id="global-min-vol" value="0" style="width: 60px;">
+    
+    <button class="btn-reset" onclick="resetLayout()" style="margin-left: 20px;" title="Restaura o layout original">Resetar Layout</button>
     <span id="status" style="font-size: 11px; font-weight: bold; margin-left: auto; color: #888;">OFFLINE</span>
 </div>
 
-<div class="layout">
-    <div class="col">
-        <div class="header-col">TIMES & SALES <span id="active-symbol" style="color: var(--blue);">---</span></div>
-        <canvas id="chart-canvas"></canvas>
-        <div id="ts-container" class="content"></div>
-    </div>
-
-    <div class="col">
-        <div class="header-col">ORDER BOOK (DEPTH 20)</div>
-        <div id="dom-container" class="content"></div>
-    </div>
-
-    <div class="col" style="border: none; padding: 12px;">
-        <div class="header-col" style="background: none; padding: 0 0 10px 0; border-bottom: none;">FILTROS DE DESTAQUE E SOM</div>
-        <div id="filters-list"></div>
-        <button onclick="addFilter()" style="width: 100%; margin-top: 10px; cursor: pointer; background: #21262d; border: 1px dashed var(--blue); color: var(--blue);">+ ADICIONAR REGRA</button>
+<div class="workspace-container">
+    <div class="grid-stack">
         
-        <div class="header-col" style="background: none; padding: 25px 0 10px 0; border-bottom: none;">TESTE DE ÁUDIO</div>
-        <select id="audio-tester" onchange="playPreview(this.value)" style="width: 100%;"></select>
+        <div class="grid-stack-item" gs-id="widget-chart" gs-w="5" gs-h="7" gs-x="0" gs-y="0">
+            <div class="grid-stack-item-content">
+                <div class="drag-handle">CHART <span id="active-symbol-chart" style="color: var(--blue);">---</span></div>
+                <div id="chart-container"></div>
+            </div>
+        </div>
+
+        <div class="grid-stack-item" gs-id="widget-ts" gs-w="5" gs-h="5" gs-x="0" gs-y="7">
+            <div class="grid-stack-item-content">
+                <div class="drag-handle">TIMES & SALES <span id="active-symbol-ts" style="color: var(--blue);">---</span></div>
+                <div id="ts-container" class="content"></div>
+            </div>
+        </div>
+
+        <div class="grid-stack-item" gs-id="widget-vap" gs-w="4" gs-h="12" gs-x="5" gs-y="0">
+            <div class="grid-stack-item-content">
+                <div class="drag-handle" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                    <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                        VOLUME AT PRICE
+                        <div style="display: flex; gap: 5px;">
+                            <select id="vap-mode" onchange="requestVAP()" style="padding: 2px;">
+                                <option value="rolling">Deslizante</option>
+                                <option value="fixed">Bloco Fixo</option>
+                            </select>
+                            <select id="vap-range" onchange="requestVAP()" style="padding: 2px;">
+                                <option value="1">1 Min</option>
+                                <option value="5" selected>5 Min</option>
+                                <option value="15">15 Min</option>
+                                <option value="30">30 Min</option>
+                                <option value="60">60 Min</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label style="font-size: 10px; cursor: pointer; display: flex; align-items: center; gap: 5px; color: #888; font-weight: normal;">
+                        <input type="checkbox" id="vap-filter-neutral" checked onchange="rebuildVapData()">
+                        Ocultar Diretos/Leilão
+                    </label>
+                </div>
+                <div id="vap-container" class="content"></div>
+            </div>
+        </div>
+
+        <div class="grid-stack-item" gs-id="widget-dom" gs-w="3" gs-h="6" gs-x="9" gs-y="0">
+            <div class="grid-stack-item-content">
+                <div class="drag-handle">ORDER BOOK (DOM)</div>
+                <div id="dom-container" class="content"></div>
+            </div>
+        </div>
+
+        <div class="grid-stack-item" gs-id="widget-filters" gs-w="3" gs-h="6" gs-x="9" gs-y="6">
+            <div class="grid-stack-item-content" style="padding: 10px;">
+                <div class="drag-handle" style="background: none; border: none; padding: 0 0 10px 0;">FILTROS DE FLUXO</div>
+                <div id="filters-list" class="content" style="padding-right: 5px;"></div>
+                <button onclick="addFilter()" style="width: 100%; margin-top: 5px; margin-bottom: 10px; cursor: pointer; background: #21262d; border: 1px dashed var(--blue); color: var(--blue);">+ REGRA</button>
+                <div class="drag-handle" style="background: none; border: none; padding: 10px 0;">TESTE DE ÁUDIO</div>
+                <select id="audio-tester" onchange="playPreview(this.value)" style="width: 100%;"></select>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
+    let grid = GridStack.init({
+        cellHeight: 60, 
+        margin: 6,
+        handle: '.drag-handle', 
+        float: true 
+    });
+
+    // Atualizei a chave do localStorage para v2 para evitar conflito com o layout antigo
+    grid.on('change', function() {
+        const savedLayout = grid.save();
+        localStorage.setItem('alpha_workspace_layout_v2', JSON.stringify(savedLayout));
+    });
+
+    const savedLayout = localStorage.getItem('alpha_workspace_layout_v2');
+    if (savedLayout) {
+        grid.load(JSON.parse(savedLayout));
+    }
+
+    function resetLayout() {
+        localStorage.removeItem('alpha_workspace_layout_v2');
+        location.reload();
+    }
+
     const ws = new WebSocket("ws://127.0.0.1:8000/ws");
     let allSymbols = [];
     let activeFilters = [];
     let currentAsset = "";
+
+    // VAP
+    let vapData = {};
+    let vapTrades = []; 
+    let vapQueue = []; 
+    let isVapLoading = false;
+    let maxVapVol = 0;
+    let vapWindowMs = 5 * 60000; 
+
+    // VARIÁVEIS DO GRÁFICO
+    let tvChart = null;
+    let candleSeries = null;
+    let currentCandle = null;
+    let chartTimeframe = 60; 
 
     const audioLibrary = [
         { n: "Nenhum (Silêncio)", u: "" },
         { n: "Beep Curto", u: "https://actions.google.com/sounds/v1/alarms/beep_short.ogg" },
         { n: "Alerta Digital", u: "https://actions.google.com/sounds/v1/alarms/digital_alarm_clock.ogg" },
         { n: "Sonar Ping", u: "https://actions.google.com/sounds/v1/alarms/sonar_ping.ogg" },
-        { n: "Laser", u: "https://actions.google.com/sounds/v1/scifi/sci-fi_laser.ogg" },
-        { n: "Bolha (Pop)", u: "https://actions.google.com/sounds/v1/water/pop.ogg" },
-        { n: "Sino (Bell)", u: "https://actions.google.com/sounds/v1/alarms/dinner_bell_ringing.ogg" },
-        { n: "Clique Seco", u: "https://actions.google.com/sounds/v1/buttons/button_click_confirmation.ogg" },
-        { n: "Confirmação Tech", u: "https://actions.google.com/sounds/v1/scifi/high_tech_confirmation.ogg" },
-        { n: "Emergência", u: "https://actions.google.com/sounds/v1/emergency/emergency_alert_system.ogg" }
+        { n: "Laser", u: "https://actions.google.com/sounds/v1/scifi/sci-fi_laser.ogg" }
     ];
+
+    function initChart() {
+        const container = document.getElementById('chart-container');
+        container.innerHTML = ""; 
+        
+        tvChart = LightweightCharts.createChart(container, {
+            width: container.clientWidth,
+            height: container.clientHeight,
+            layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#c9d1d9' },
+            grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            rightPriceScale: { borderColor: '#30363d' },
+            timeScale: { borderColor: '#30363d', timeVisible: true, secondsVisible: false }
+        });
+
+        candleSeries = tvChart.addCandlestickSeries({
+            upColor: '#238636', downColor: '#da3633', borderVisible: false,
+            wickUpColor: '#238636', wickDownColor: '#da3633'
+        });
+        
+        new ResizeObserver(entries => {
+            if (entries.length === 0 || entries[0].target !== container) return;
+            const newRect = entries[0].contentRect;
+            tvChart.applyOptions({ width: newRect.width, height: newRect.height });
+        }).observe(container);
+    }
 
     ws.onopen = () => {
         document.getElementById("status").innerText = "WS ONLINE";
@@ -101,19 +216,13 @@
         ws.send(JSON.stringify({ action: "LIST_SYMBOLS" }));
     };
 
-    ws.onclose = () => {
-        document.getElementById("status").innerText = "OFFLINE";
-        document.getElementById("status").style.color = "#888";
-    };
-
     ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
-        if(msg.type === "symbols_list") {
-            allSymbols = msg.data.split(",").filter(s => s.trim().length > 0);
-        }
+        if(msg.type === "symbols_list") allSymbols = msg.data.split(",").filter(s => s.trim().length > 0);
         if(msg.type === "tick") handleTrade(msg);
         if(msg.type === "book") handleDOM(msg.data);
-        if(msg.type === "candles") drawChart(msg.data);
+        if(msg.type === "candles") processHistoricalCandles(msg.data); 
+        if(msg.type === "vap_snapshot") processVapSnapshot(msg.data);
         if(msg.type === "status" && msg.clear) clearUI();
     };
 
@@ -121,10 +230,17 @@
         const asset = document.getElementById("asset-input").value.toUpperCase();
         if(!asset) return;
         currentAsset = asset;
-        document.getElementById("active-symbol").innerText = asset;
+        
+        // Atualiza o nome do ativo em ambos os painéis
+        document.getElementById("active-symbol-chart").innerText = asset;
+        document.getElementById("active-symbol-ts").innerText = asset;
+        
         clearUI();
+        initChart();
         loadFilters(asset);
+        
         ws.send(JSON.stringify({ action: "SUBSCRIBE", param: asset }));
+        setTimeout(requestVAP, 500); 
     }
 
     function disconnect() {
@@ -136,33 +252,222 @@
     function clearUI() {
         document.getElementById("ts-container").innerHTML = "";
         document.getElementById("dom-container").innerHTML = "";
-        if(!currentAsset) document.getElementById("active-symbol").innerText = "---";
-        const ctx = document.getElementById("chart-canvas").getContext("2d");
-        ctx.clearRect(0, 0, 800, 200);
+        document.getElementById("vap-container").innerHTML = "";
+        vapData = {}; vapTrades = []; maxVapVol = 0; currentCandle = null;
+        if(!currentAsset) {
+            document.getElementById("active-symbol-chart").innerText = "---";
+            document.getElementById("active-symbol-ts").innerText = "---";
+        }
+        if(tvChart) { tvChart.remove(); tvChart = null; }
     }
 
-    // --- FILTROS NO LOCALSTORAGE ---
+    // --- CHART LOGIC ---
+    function processHistoricalCandles(data) {
+        if (!data || data.length === 0 || !candleSeries) return;
+        
+        let mappedData = data.map(d => ({ time: d.t, open: d.o, high: d.h, low: d.l, close: d.c }));
+        mappedData.sort((a, b) => a.time - b.time);
+        
+        const uniqueData = [];
+        mappedData.forEach(item => {
+            if (uniqueData.length === 0 || uniqueData[uniqueData.length - 1].time !== item.time) {
+                uniqueData.push(item);
+            }
+        });
+
+        try {
+            candleSeries.setData(uniqueData);
+            currentCandle = uniqueData[uniqueData.length - 1];
+        } catch (error) {
+            console.error("Erro ao injetar velas no TradingView:", error);
+        }
+    }
+
+    function updateLiveCandle(t) {
+        if (!candleSeries) return;
+        const tickTimeSec = Math.floor(t.ms / 1000);
+        const candleTime = Math.floor(tickTimeSec / chartTimeframe) * chartTimeframe;
+        if (!currentCandle || currentCandle.time !== candleTime) {
+            currentCandle = { time: candleTime, open: t.p, high: t.p, low: t.p, close: t.p };
+        } else {
+            currentCandle.high = Math.max(currentCandle.high, t.p);
+            currentCandle.low = Math.min(currentCandle.low, t.p);
+            currentCandle.close = t.p;
+        }
+        candleSeries.update(currentCandle);
+    }
+
+    // --- TICK & VAP LOGIC ---
+    function handleTrade(t) {
+        updateLiveCandle(t);
+
+        if(isVapLoading) {
+            vapQueue.push(t);
+        } else {
+            const mode = document.getElementById("vap-mode").value;
+            if (mode === 'fixed') {
+                const cutoffMs = Math.floor(t.ms / vapWindowMs) * vapWindowMs;
+                if (vapTrades.length > 0 && vapTrades[0].ms < cutoffMs) {
+                    vapTrades = []; vapData = {}; maxVapVol = 0;
+                }
+            }
+            vapTrades.push(t);
+            addTickToVap(t); 
+        }
+
+        const container = document.getElementById("ts-container");
+        const globalMin = parseInt(document.getElementById("global-min-vol").value) || 0;
+        if(t.v < globalMin) return;
+
+        const row = document.createElement("div");
+        row.className = "trade-row";
+        
+        activeFilters.sort((a,b) => b.min - a.min).some(f => {
+            if(t.v >= f.min) {
+                row.style.background = f.color + "22";
+                row.style.borderLeft = `4px solid ${f.color}`;
+                if(f.sound > 0 && audioLibrary[f.sound].u) new Audio(audioLibrary[f.sound].u).play().catch(()=>{});
+                return true;
+            }
+        });
+
+        const time = new Date(t.ms).toLocaleTimeString('pt-BR', {hour12:false});
+        let sideColor = 'var(--neutral)';
+        if(t.side === 'B') sideColor = 'var(--green)';
+        if(t.side === 'S') sideColor = 'var(--red)';
+
+        row.innerHTML = `<span>${time}</span><span style="color:${sideColor}">${t.p.toFixed(2)}</span><span style="font-weight:bold">${t.v}</span><span style="color:${sideColor}">${t.side}</span>`;
+        container.prepend(row);
+        if(container.children.length > 100) container.removeChild(container.lastChild);
+    }
+
+    function requestVAP() {
+        if(!currentAsset) return;
+        const mins = document.getElementById("vap-range").value;
+        vapWindowMs = mins * 60000; 
+        isVapLoading = true;
+        vapQueue = []; vapTrades = [];
+        document.getElementById("vap-container").innerHTML = "<div style='padding:15px;text-align:center;'>A carregar Histórico VAP...</div>";
+        ws.send(JSON.stringify({ action: "GET_VAP", param: mins }));
+    }
+
+    function addTickToVap(t) {
+        const hideNeutral = document.getElementById("vap-filter-neutral").checked;
+        if (t.side === 'N' && hideNeutral) return;
+
+        if(!vapData[t.p]) vapData[t.p] = { b: 0, s: 0, n: 0, t: 0 };
+        if(t.side === 'B') vapData[t.p].b += t.v;
+        else if(t.side === 'S') vapData[t.p].s += t.v;
+        else vapData[t.p].n += t.v; 
+        vapData[t.p].t += t.v;
+        if(vapData[t.p].t > maxVapVol) maxVapVol = vapData[t.p].t;
+    }
+
+    function rebuildVapData() { vapData = {}; maxVapVol = 0; vapTrades.forEach(t => addTickToVap(t)); }
+
+    function processVapSnapshot(ticks) {
+        let lastMs = 0;
+        if (ticks.length > 0) lastMs = ticks[ticks.length - 1].ms;
+        let merged = ticks.concat(vapQueue.filter(t => t.ms > lastMs));
+        const mode = document.getElementById("vap-mode").value;
+        const latestMarketMs = merged.length > 0 ? merged[merged.length - 1].ms : new Date().getTime();
+        let cutoffMs = mode === 'rolling' ? latestMarketMs - vapWindowMs : Math.floor(latestMarketMs / vapWindowMs) * vapWindowMs;
+        vapTrades = merged.filter(t => t.ms >= cutoffMs);
+        rebuildVapData(); isVapLoading = false; vapQueue = []; 
+    }
+
+    setInterval(() => {
+        if(isVapLoading || vapTrades.length === 0) return;
+        const mode = document.getElementById("vap-mode").value;
+        const latestMarketMs = vapTrades[vapTrades.length - 1].ms;
+        let cutoffMs = mode === 'rolling' ? latestMarketMs - vapWindowMs : Math.floor(latestMarketMs / vapWindowMs) * vapWindowMs;
+        let expiredCount = 0;
+        while(expiredCount < vapTrades.length && vapTrades[expiredCount].ms < cutoffMs) expiredCount++;
+        if(expiredCount > 0) { vapTrades.splice(0, expiredCount); rebuildVapData(); }
+    }, 5000); 
+
+    setInterval(() => {
+        if(isVapLoading || !currentAsset || Object.keys(vapData).length === 0) return;
+        const container = document.getElementById("vap-container");
+        const prices = Object.keys(vapData).map(Number).sort((a,b) => b - a);
+        let html = '';
+        prices.forEach(p => {
+            const data = vapData[p];
+            const buyPct = (data.b / maxVapVol) * 100;
+            const sellPct = (data.s / maxVapVol) * 100;
+            const neutralPct = (data.n / maxVapVol) * 100; 
+            html += `
+            <div class="vap-row">
+                <div class="vap-price">${p.toFixed(2)}</div>
+                <div class="vap-bar-container">
+                    <div class="vap-buy-bar" style="width: ${buyPct}%"></div>
+                    <div class="vap-sell-bar" style="width: ${sellPct}%"></div>
+                    <div class="vap-neutral-bar" style="width: ${neutralPct}%"></div>
+                    <div class="vap-text">${data.t} (C: ${data.b} V: ${data.s} N: ${data.n})</div>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }, 400);
+
+    function handleDOM(book) {
+        const container = document.getElementById("dom-container");
+        book.sort((a,b) => b.p - a.p);
+        container.innerHTML = book.map(r => `
+            <div class="dom-row">
+                <div style="color:var(--green)">${r.t=='B'?r.v:''}</div>
+                <div class="price-cell">${r.p.toFixed(2)}</div>
+                <div style="color:var(--red)">${r.t=='S'?r.v:''}</div>
+            </div>`).join('');
+    }
+
+    const assetInput = document.getElementById("asset-input");
+    const results = document.getElementById("search-results");
+    let currentFocus = -1;
+    function selectAsset(symbol) { assetInput.value = symbol; results.style.display = "none"; connect(); }
+    assetInput.addEventListener("input", (e) => {
+        const val = e.target.value.toUpperCase();
+        results.innerHTML = ""; currentFocus = -1; 
+        if(!val) { results.style.display="none"; return; }
+        const filtered = allSymbols.filter(s => s.includes(val)).slice(0, 15);
+        if(filtered.length > 0) {
+            filtered.forEach(s => {
+                const d = document.createElement("div"); d.className = "search-item"; d.innerText = s;
+                d.onmousedown = (event) => { event.preventDefault(); selectAsset(s); };
+                results.appendChild(d);
+            });
+            results.style.display = "block";
+        } else results.style.display = "none";
+    });
+    assetInput.addEventListener("keydown", function(e) {
+        let x = results.getElementsByClassName("search-item");
+        if (e.key === "ArrowDown") { currentFocus++; addActive(x); }
+        else if (e.key === "ArrowUp") { currentFocus--; addActive(x); }
+        else if (e.key === "Enter") {
+            e.preventDefault();
+            if (currentFocus > -1 && x) x[currentFocus].onmousedown(new MouseEvent('mousedown'));
+            else if (x.length > 0) x[0].onmousedown(new MouseEvent('mousedown'));
+        }
+    });
+    function addActive(x) {
+        if (!x || x.length === 0) return false;
+        for (let i = 0; i < x.length; i++) x[i].classList.remove("active");
+        if (currentFocus >= x.length) currentFocus = 0;
+        if (currentFocus < 0) currentFocus = (x.length - 1);
+        x[currentFocus].classList.add("active");
+        x[currentFocus].scrollIntoView({ block: "nearest" });
+    }
+    assetInput.addEventListener("blur", () => results.style.display = "none");
+    assetInput.addEventListener("focus", () => { if (assetInput.value && results.innerHTML !== "") results.style.display = "block"; });
+
     function loadFilters(asset) {
         const saved = localStorage.getItem(`cfg_${asset}`);
-        if (saved) {
-            activeFilters = JSON.parse(saved);
-        } else {
-            activeFilters = [
-                { min: 50, color: "#58a6ff", sound: 0 },
-                { min: 250, color: "#ffea00", sound: 0 }
-            ];
-        }
+        activeFilters = saved ? JSON.parse(saved) : [{ min: 50, color: "#58a6ff", sound: 0 }];
         renderFilters();
     }
-
-    function addFilter() {
-        activeFilters.push({ min: 100, color: "#da3633", sound: 0 });
-        renderFilters();
-    }
-
+    function addFilter() { activeFilters.push({ min: 100, color: "#da3633", sound: 0 }); renderFilters(); }
     function renderFilters() {
-        const div = document.getElementById("filters-list");
-        div.innerHTML = activeFilters.map((f, i) => `
+        document.getElementById("filters-list").innerHTML = activeFilters.map((f, i) => `
             <div class="filter-card">
                 <div class="filter-row">
                     <label style="font-size: 10px; font-weight: bold;">LOTE >=</label>
@@ -177,175 +482,11 @@
         `).join('');
         if(currentAsset) localStorage.setItem(`cfg_${currentAsset}`, JSON.stringify(activeFilters));
     }
-
     function updateF(i, k, v) { activeFilters[i][k] = v; renderFilters(); }
     function removeF(i) { activeFilters.splice(i, 1); renderFilters(); }
-    function playPreview(i) { 
-        if(i > 0 && audioLibrary[i].u) new Audio(audioLibrary[i].u).play(); 
-    }
+    function playPreview(i) { if(i > 0 && audioLibrary[i].u) new Audio(audioLibrary[i].u).play(); }
 
-    // --- PROCESSAMENTO DE DADOS (T&S) ---
-    function handleTrade(t) {
-        const container = document.getElementById("ts-container");
-        const globalMin = parseInt(document.getElementById("global-min-vol").value) || 0;
-        
-        if(t.v < globalMin) return;
-
-        const row = document.createElement("div");
-        row.className = "trade-row";
-        
-        activeFilters.sort((a,b) => b.min - a.min).some(f => {
-            if(t.v >= f.min) {
-                row.style.background = f.color + "22";
-                row.style.borderLeft = `4px solid ${f.color}`;
-                if(f.sound > 0 && audioLibrary[f.sound].u) {
-                    new Audio(audioLibrary[f.sound].u).play().catch(()=>{});
-                }
-                return true;
-            }
-        });
-
-        const time = new Date(t.ms).toLocaleTimeString('pt-BR', {hour12:false});
-        row.innerHTML = `
-            <span>${time}</span>
-            <span style="color:${t.side=='B'?'var(--green)':'var(--red)'}">${t.p.toFixed(2)}</span>
-            <span style="font-weight:bold">${t.v}</span>
-            <span style="color:${t.side=='B'?'var(--green)':'var(--red)'}">${t.side}</span>
-        `;
-        
-        container.prepend(row);
-        if(container.children.length > 100) container.removeChild(container.lastChild);
-    }
-
-    // --- PROCESSAMENTO DO LIVRO (DOM) ---
-    function handleDOM(book) {
-        const container = document.getElementById("dom-container");
-        book.sort((a,b) => b.p - a.p);
-        container.innerHTML = book.map(r => `
-            <div class="dom-row">
-                <div style="color:var(--green)">${r.t=='B'?r.v:''}</div>
-                <div class="price-cell">${r.p.toFixed(2)}</div>
-                <div style="color:var(--red)">${r.t=='S'?r.v:''}</div>
-            </div>`).join('');
-    }
-
-    // --- GRÁFICO BÁSICO DE LINHA ---
-    function drawChart(data) {
-        const canvas = document.getElementById("chart-canvas");
-        const ctx = canvas.getContext("2d");
-        const w = canvas.width = canvas.offsetWidth;
-        const h = canvas.height = 200;
-        
-        if (!data || data.length === 0) return;
-
-        const prices = data.map(d => d.c);
-        const min = Math.min(...prices);
-        const max = Math.max(...prices);
-        const rng = max - min || 1; 
-
-        ctx.strokeStyle = "var(--blue)";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        data.forEach((d, i) => {
-            const x = (i / (data.length - 1)) * w;
-            const y = h - ((d.c - min) / rng) * (h - 20) - 10;
-            if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-    }
-
-    // --- BUSCA SUSPENSA COM NAVEGAÇÃO POR TECLADO ---
-    const assetInput = document.getElementById("asset-input");
-    const results = document.getElementById("search-results");
-    let currentFocus = -1; // Rastreia o item selecionado pelo teclado
-
-    // Função auxiliar para disparar a seleção e conexão
-    function selectAsset(symbol) {
-        assetInput.value = symbol; 
-        results.style.display = "none"; 
-        connect(); 
-    }
-
-    assetInput.addEventListener("input", (e) => {
-        const val = e.target.value.toUpperCase();
-        results.innerHTML = "";
-        currentFocus = -1; // Reseta o foco ao digitar
-        
-        if(!val) { results.style.display="none"; return; }
-        
-        const filtered = allSymbols.filter(s => s.includes(val)).slice(0, 15);
-        if(filtered.length > 0) {
-            filtered.forEach(s => {
-                const d = document.createElement("div"); 
-                d.className = "search-item"; 
-                d.innerText = s;
-                
-                // onmousedown previne que o blur feche a div antes do click
-                d.onmousedown = (event) => { 
-                    event.preventDefault(); 
-                    selectAsset(s);
-                };
-                results.appendChild(d);
-            });
-            results.style.display = "block";
-        } else {
-            results.style.display = "none";
-        }
-    });
-
-    // Lógica das Setas e Enter
-    assetInput.addEventListener("keydown", function(e) {
-        let x = results.getElementsByClassName("search-item");
-        
-        if (e.key === "ArrowDown") {
-            currentFocus++;
-            addActive(x);
-        } else if (e.key === "ArrowUp") {
-            currentFocus--;
-            addActive(x);
-        } else if (e.key === "Enter") {
-            e.preventDefault();
-            if (currentFocus > -1) {
-                // Se o usuário navegou com a seta, seleciona aquele
-                if (x) x[currentFocus].onmousedown(new MouseEvent('mousedown'));
-            } else if (x.length > 0) {
-                // Se ele só digitou e deu Enter, pega o primeiro da lista
-                x[0].onmousedown(new MouseEvent('mousedown'));
-            }
-        }
-    });
-
-    function addActive(x) {
-        if (!x || x.length === 0) return false;
-        removeActive(x);
-        if (currentFocus >= x.length) currentFocus = 0;
-        if (currentFocus < 0) currentFocus = (x.length - 1);
-        x[currentFocus].classList.add("active");
-        
-        // Faz o scroll acompanhar a seleção se passar do limite visual
-        x[currentFocus].scrollIntoView({ block: "nearest" });
-    }
-
-    function removeActive(x) {
-        for (let i = 0; i < x.length; i++) {
-            x[i].classList.remove("active");
-        }
-    }
-
-    assetInput.addEventListener("blur", () => {
-        results.style.display = "none";
-    });
-
-    assetInput.addEventListener("focus", () => {
-        if (assetInput.value && results.innerHTML !== "") {
-            results.style.display = "block";
-        }
-    });
-
-    window.onload = () => {
-        const tester = document.getElementById("audio-tester");
-        audioLibrary.forEach((s, i) => tester.add(new Option(s.n, i)));
-    };
+    window.onload = () => { audioLibrary.forEach((s, i) => document.getElementById("audio-tester").add(new Option(s.n, i))); };
 </script>
 </body>
 </html>

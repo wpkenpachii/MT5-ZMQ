@@ -7,6 +7,7 @@
     long zmq_socket(long context, int type);
     int  zmq_close(long socket);
     int  zmq_connect(long socket, uchar &endpoint[]);
+    int  zmq_bind(long socket, uchar &endpoint[]); // <-- NOVA FUNÇÃO ADICIONADA
     int  zmq_send(long socket, uchar &buf[], int len, int flags);
     int  zmq_recv(long socket, uchar &buf[], int len, int flags);
     int  zmq_setsockopt(long socket, int option, const uchar &optval[], int optvallen);
@@ -29,17 +30,38 @@ public:
         if(ctx > 0) zmq_ctx_term(ctx);
     }
 
+    // Função Original (MT5 como Cliente)
     bool Init(string addr_pub, string addr_sub) {
         ctx = zmq_ctx_new();
         if(ctx <= 0) return false;
+        
         sock_pub = zmq_socket(ctx, ZMQ_PUB);
         uchar p_buf[]; StringToCharArray(addr_pub, p_buf, 0, -1, CP_UTF8);
         if(zmq_connect(sock_pub, p_buf) != 0) return false;
+        
         sock_sub = zmq_socket(ctx, ZMQ_SUB);
         uchar filter[] = {0}; 
         if(zmq_setsockopt(sock_sub, ZMQ_SUBSCRIBE, filter, 0) != 0) return false;
         uchar s_buf[]; StringToCharArray(addr_sub, s_buf, 0, -1, CP_UTF8);
         return (zmq_connect(sock_sub, s_buf) == 0);
+    }
+
+    // NOVA FUNÇÃO: MT5 como Servidor
+    bool Bind(string addr_pub, string addr_sub) {
+        ctx = zmq_ctx_new();
+        if(ctx <= 0) return false;
+        
+        // Abre a porta para enviar dados (MT5 hospeda)
+        sock_pub = zmq_socket(ctx, ZMQ_PUB);
+        uchar p_buf[]; StringToCharArray(addr_pub, p_buf, 0, -1, CP_UTF8);
+        if(zmq_bind(sock_pub, p_buf) != 0) return false;
+        
+        // Abre a porta para receber comandos (MT5 hospeda)
+        sock_sub = zmq_socket(ctx, ZMQ_SUB);
+        uchar filter[] = {0}; 
+        if(zmq_setsockopt(sock_sub, ZMQ_SUBSCRIBE, filter, 0) != 0) return false;
+        uchar s_buf[]; StringToCharArray(addr_sub, s_buf, 0, -1, CP_UTF8);
+        return (zmq_bind(sock_sub, s_buf) == 0);
     }
 
     int Send(string text) {

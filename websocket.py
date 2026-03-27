@@ -38,16 +38,13 @@ class WebSocketBroker:
 broker = WebSocketBroker()
 context = zmq.asyncio.Context()
 
-# =======================================================
-# PYTHON É O CLIENTE (Conecta nas portas abertas pelo MT5)
-# =======================================================
+# PYTHON É O CLIENTE (Conecta nas portas do MT5)
 sock_recv = context.socket(zmq.SUB)
 sock_recv.connect("tcp://127.0.0.1:5555")
 sock_recv.setsockopt_string(zmq.SUBSCRIBE, "") 
 
 sock_cmd = context.socket(zmq.PUB)
 sock_cmd.connect("tcp://127.0.0.1:5558")
-# =======================================================
 
 async def zmq_listener():
     print("[ZMQ] À escuta de dados do MT5 na porta 5555...")
@@ -72,19 +69,24 @@ async def ws_handler(websocket):
             action = req.get("action")
             
             if action == "LIST_SYMBOLS":
-                print("[WS] A solicitar LIST_SYMBOLS ao MT5...")
-                # Envio único. Sem rajadas, pois a conexão já está estável.
+                print("[WS] Solicitando LIST_SYMBOLS...")
                 sock_cmd.send_string("LIST_SYMBOLS")
                 
             elif action == "SUBSCRIBE":
                 symbol = req.get("param")
                 if symbol:
                     broker.subscribe(websocket, symbol)
-                    
-                    # Envia a troca de ativo e o pedido de histórico (apenas uma vez)
                     sock_cmd.send_string(f"SELECT_SYMBOL|{symbol}")
-                    await asyncio.sleep(0.1) # Breve pausa só para o MT5 processar a troca antes do histórico
-                    sock_cmd.send_string(f"GET_SNAPSHOT|50")
+                    await asyncio.sleep(0.2)
+                    
+                    # PEDINDO 1000 CANDLES DE HISTÓRICO PARA O GRÁFICO
+                    sock_cmd.send_string(f"GET_SNAPSHOT|1000")
+                    
+            elif action == "GET_VAP":
+                mins = req.get("param")
+                if mins:
+                    print(f"[WS] Solicitando Snapshot VAP de {mins} minutos...")
+                    sock_cmd.send_string(f"GET_VAP|{mins}")
                     
     except websockets.exceptions.ConnectionClosed:
         pass
