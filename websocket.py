@@ -58,6 +58,7 @@ async def zmq_listener():
                 symbol = data.get("symbol") or data.get("s")
                 if symbol: await broker.route_market_data(symbol, msg)
         except Exception as e:
+            print(f"[ZMQ ERROR] {e}")
             await asyncio.sleep(0.01)
 
 async def ws_handler(websocket):

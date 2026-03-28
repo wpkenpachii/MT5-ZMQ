@@ -1,4 +1,4 @@
-﻿#property copyright "Copyright 2026, sirzarakikenpachi"
+#property copyright "Copyright 2026, sirzarakikenpachi"
 #property version   "9.7"
 #property strict
 
@@ -111,13 +111,25 @@ void OnTimer() {
             int mins = (arg == "" ? 5 : (int)StringToInteger(arg));
             MqlTick ticks[];
             
-            ulong to_ms = (ulong)SymbolInfoInteger(active_symbol, SYMBOL_TIME_MSC);
-            ulong from_ms = to_ms - (mins * 60000); 
+            ulong last_real_ms = 0;
+            MqlTick lastTickArray[];
+            if (CopyTicks(active_symbol, lastTickArray, COPY_TICKS_TRADE, 0, 1) > 0) {
+                last_real_ms = lastTickArray[0].time_msc;
+            } else {
+                last_real_ms = (ulong)SymbolInfoInteger(active_symbol, SYMBOL_TIME_MSC);
+            }
             
-            int copied = CopyTicksRange(active_symbol, ticks, COPY_TICKS_TRADE, from_ms);
+            ulong from_ms = last_real_ms - (mins * 60000); 
+            
+            // Print(StringFormat("[GET_VAP] from_ms: %lld | last_real_ms: %lld | diff_mins: %d", from_ms, last_real_ms, mins));
+            
+            int copied = CopyTicksRange(active_symbol, ticks, COPY_TICKS_TRADE, from_ms, last_real_ms);
+            // Print("[GET_VAP] Copied Ticks: ", copied);
+            
             if(copied > 0) {
                 int start_idx = 0;
                 if(copied > 30000) start_idx = copied - 30000; 
+                // Print("[GET_VAP] Start Idx for loop: ", start_idx);
 
                 string json;
                 StringInit(json, 2000000); 
@@ -125,14 +137,12 @@ void OnTimer() {
                 bool first = true;
                 
                 for(int i=start_idx; i<copied; i++) {
-                    // CORREÇÃO: Como já usamos COPY_TICKS_TRADE, todos os ticks aqui são negócios. 
-                    // Só precisamos de ignorar os que vêm com volume zero (anomalias do servidor).
                     if(ticks[i].volume <= 0) continue; 
                     
                     bool is_buy = ((ticks[i].flags & TICK_FLAG_BUY) == TICK_FLAG_BUY);
                     bool is_sell = ((ticks[i].flags & TICK_FLAG_SELL) == TICK_FLAG_SELL);
                     
-                    string side = "N"; // Neutro
+                    string side = "N";
                     if(is_buy) side = "B";
                     else if(is_sell) side = "S";
                     
@@ -142,7 +152,10 @@ void OnTimer() {
                     first = false;
                 }
                 json += "]}";
+                // Print("[GET_VAP] JSON Size Sent: ", StringLen(json), " bytes.");
                 zmq.Send(json);
+            } else {
+                // Print("[GET_VAP] NENHUM TICK ACHADO PARA ENVIAR ZMQ!");
             }
         }
     }
